@@ -25,3 +25,10 @@ class Order:
         self.o_ttime = self.o_stime + self.o_wtime # 订单结束时刻
         self.o_status = 0 # 订单是否完成
         self.o_wait = datetime.timedelta(0) # 实际等了多久
+        self.o_rate = self.o_reward / self.o_dis # 订单收益 / 订单距离
+
+    def __lt__(self, other):
+        if self.o_ttime == other.o_ttime:
+            # return self.o_rate > other.o_rate
+            return self.o_dis < other.o_dis
+        return self.o_ttime < other.o_ttime

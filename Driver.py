@@ -9,3 +9,6 @@ class Driver:
         self.d_ttime = dt.strptime("2022/06/29 18:00", '%Y/%m/%d %H:%M') # 完成上一个订单的时刻
         self.d_reward = 0.0 # 司机获得的收益
         self.d_vain_dis = 0.0 # 司机的空载距离
+
+    def __lt__(self, other):
+        return self.d_ttime < other.d_ttime
