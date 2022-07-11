@@ -1,119 +1,82 @@
-import queue
 import numpy as np
-import datetime
-from datetime import datetime as dt
-
-from scipy.optimize import linear_sum_assignment
-
+from time import time
 from common import get_euclidean_distance, dispatch
+from scipy.optimize import linear_sum_assignment
+from ctypes import *
+import platform
+import KM
 
-
-def fun(driver_work, order_work, now, rate):
-    mat = np.zeros([len(order_work), len(driver_work)], dtype=float)  # 订单分派给司机的分派矩阵
-    for i, order in enumerate(order_work):
-        for j, driver in enumerate(driver_work):
-            # 权值取订单出发点与司机的距离
-            dis = get_euclidean_distance(order.o_start_x, order.o_start_y, driver.d_pos_x, driver.d_pos_y)
-            mat[i][j] = dis
-
-    row_ind, col_ind = linear_sum_assignment(mat)
+def kuhn_munkres(mat, maximize):
+    # row_ind, col_ind = linear_sum_assignment(mat, maximize)
     # print('row_ind:', row_ind)  # 开销矩阵对应的行索引
     # print('col_ind:', col_ind)  # 对应行索引的最优指派的列索引
     # print('cost:', mat[row_ind, col_ind])  # 提取每个行索引的最优指派列索引所在的元素，形成数组
     # print('cost_sum:', mat[row_ind, col_ind].sum())  # 最小开销
 
-    k = min(len(order_work), len(driver_work))
-    for i in range(k):  # 分派处理
-        order = order_work[row_ind[i]]  # 订单
-        driver = driver_work[col_ind[i]]  # 该订单分派给对应的司机
-        # print(f'{order.o_id}号订单分派给{driver.d_id}号车 车和订单距离：{mat[row_ind[i], col_ind[i]]}')
-        dispatch(order, driver, now, rate)  # 分派
+    n = np.size(mat, 0)
+    m = np.size(mat, 1)
+    # print(n, m, 1 ,1 ,1 ,1 ,1)
 
-    s = set(row_ind)
-    back_order = []
-    for i, order in enumerate(order_work):
-        if i in s:
-            continue
-        back_order.append(order)
+    flag = False
+    if n <= m:
+        flag = True
 
-    return back_order
+    num = -1
+    if maximize:
+        num = 1
 
+    mat = mat.ravel()
+    mat = (num * mat).tolist()
+    tic = time()
 
-# 基于距离的匈牙利算法
-def kuhn_munkres(driver_list, order_list, rate):
+    km = KM.KM(mat, n, m)
+    # print('before km compute')
 
-    driver_pq = queue.PriorityQueue() # 司机的优先队列 上一单结束时间越早 优先级越高
-    order_pq = queue.PriorityQueue() # 订单的优先队列 订单取消时刻越早 优先级越高
+    km.compute()
+    # print('after km compute')
+    toc = time()
 
-    for driver in driver_list: # 初始化司机的优先队列
-        driver_pq.put(driver)
+    # print('KM costs {}s'.format(toc - tic))
+    # print(km)   #print the weight matrix
 
-    timestamp = set()
-    for order in order_list:
-        timestamp.add(order.o_stime)
-        timestamp.add(order.o_ttime)
+    matches = km.getMatch(flag)
+    max_w = num * km.maxWeight()
 
-    timestamp_pq = queue.PriorityQueue()
+    # return row_ind, col_ind
+    return list(matches)
 
-    for ts in timestamp:
-        timestamp_pq.put(ts)
+if __name__ == "__main__":
+    print(windll.kernel32)
+    print(platform.architecture())
+    lib = CDLL(".\Kuhn-Munkres")
+    print(lib.add(1, 2))
 
-    idx = 0 # 按下单时刻顺序访问订单列表 模拟订单按时下达
-    last_time = order_list[-1].o_ttime # 最后一单的取消时刻
-    while not timestamp_pq.empty(): # 时间戳遍历
-        now = timestamp_pq.get() # 更新当前时间
-        if now > last_time:
-            break
-        if idx < len(order_list):
-            while order_list[idx].o_stime <= now: # 下单
-                order_pq.put(order_list[idx])
-                idx += 1
-                if idx >= len(order_list):
-                    break
+    w = np.array([11.2472, 0.229506, 0.0382638, 0.0381432, 0.0397027, 0.0313909,
+                  0.224794, 8.14484, 0.0458661, 0.0453376, 0.0466399, 0.0367264,
+                  0.0299137, 0.0354885, 0.163514, 0.149832, 0.138921, 0.0995749,
+                  0.0395173, 0.0463618, 21.4613, 0.963952, 0.436966, 0.255043,
+                  0.041079, 0.0473524, 0.46014, 0.818429, 15.3917, 0.8489,
+                  0.0330598, 0.0378731, 0.264884, 0.380127, 0.944165, 26.4972,
+                  0.0391057, 0.0455497, 1.07156, 9.93479, 0.726293, 0.35456,
+                  0.0355863, 0.0427534, 0.317523, 0.236992, 0.185949, 0.124624], np.float32).tolist()
 
-        driver_work = []  # 可接单的司机列表
-        while not driver_pq.empty(): # 遍历司机
-            driver = driver_pq.get()
-            if driver.d_ttime > now: # 没有待接单的司机
-                driver_pq.put(driver)
-                break
-            driver_work.append(driver) # 司机可接单 加入driver_work
+    w = np.array([-28.377995885111872, -27.836450085764795, -28.466234156418146, -30.08888568379734, -30.1724377631606, -32.93120452743761, -29.403430513109747, -29.528572393494617, -29.392852042693757, -7.271181341836391, -31.131965120075392, -15.035782970945155, -31.330320915512804, -17.316855467099522, -17.244813328784097, -20.209419051103524, -16.72412287072882, -16.240773236868204, -15.970286335613459, -15.895312712103754, -7.982089493877457, -26.168609374392233, -8.009830230059485, -27.385511443137926, -27.67802365461328, -29.083855590388918, -26.84531514570073, -27.866685660516417, -28.003310341320383, -13.884266561558833, -25.79182258223909, -3.4726572955625246, -26.034270343542055, -5.768992384300732, -5.8206224823757315, -8.682580667688367, -5.09572603713598, -5.181400623987356, -5.085525306127015, -20.26017333565318, -16.00277928441113, -23.709147933202267, -16.09066240035406, -25.493363536509243, -25.709634101321384, -27.83440524292942, -24.847185502270598, -25.532120495145616, -25.556019334948694, -5.370750654148408, -29.660155702666632, -32.01135461289594, -29.71319173014961, -34.23360500899847, -34.332598151922504, -37.039897235106174, -33.546488932871554, -33.7317695495324, -33.61034300810511, -9.832602339471734, -20.925314519047312, -13.76171771435744, -21.12082947245329, -15.852043079127487, -15.995440567262332, -18.55235630144751, -15.168182506352261, -15.563268231227335, -15.50969272322807, -9.817419198004146, -29.836723621852652, -29.491900215414393, -29.91663199434123, -31.75651628828474, -31.83316611764025, -34.61170438104027, -31.07222369663398, -31.168210633733928, -31.024499255605026, -8.900828483864611, -12.818020212894853, -21.552623795830332, -12.942387048919153, -23.117041350456986, -23.367376831826107, -25.232112074803517, -22.50672160699181, -23.343512723520337, -23.41719806119883, -8.574972870860202, -16.15687546252306, -13.195275192489174, -16.37633471847929, -14.730023643601974, -14.979583660558156, -16.901008674034532, -14.11898906967732, -14.972555115056194, -15.058318270160298, -12.664834817399287, -22.534941614040438, -15.79391051858277, -22.713626505415064, -17.983373124219778, -18.09432235223732, -20.773065643262846, -17.295970431716928, -17.549561318441757, -17.45482014395683, -8.161160134259942, -33.65898042870299, -22.196873985284654, -33.81966664179502, -24.509585257945222, -24.461892950309995, -27.428132014379464, -23.891997992442832, -23.499203945628924, -23.243791613009304, -14.419813253671364]).tolist()
 
-        n = len(driver_work) # 当前可接单的司机数量
+    b = (-np.array(w)).tolist()
+    tic = time()
+    km = KM.KM(w, 12, 10)
+    km.compute()
+    toc = time()
 
-        order_work = [] # 待调度的订单
-        while not order_pq.empty(): # 遍历订单
-            order = order_pq.get()
-            if order.o_ttime < now: # 订单超过乘客可忍耐等待时间范围 取消了
-                pass
-            else:
-                # if len(order_work) == n: # 这一批次的订单数量已经和可接单司机数量相等了 该待调度订单等下一批
-                #     order_pq.put(order)
-                #     break
-                # else:
-                #     order_work.append(order)
-                order_work.append(order)
+    print('KM costs {}s'.format(toc - tic))
+    # print(km)   #print the weight matrix
 
-        m = len(order_work)
-        # print(f'当前时间{now} 当前可接单的司机数量{n} 正在跑单的司机数量{driver_pq.qsize()} 当前待调度的订单{m}')
-        back_order = []
-        if m > 0:
-            back_order = fun(driver_work, order_work, now, rate)
+    # match = km.getMatch(False) # False 返回列
+    match = km.getMatch(True) # True 返回行
+    print('Kuhn Munkres match:')
+    print(match)
 
-        for order in back_order:
-            order_pq.put(order)
-
-        timestamp = set()
-        for driver in driver_work: # 司机不是一次性的 用完还可以再用 得重新回到优先队列
-            driver_pq.put(driver)
-            if driver.d_ttime > now: # 司机的跑单结束的时刻可以引发订单调度
-                timestamp.add(driver.d_ttime) # 如果还有订单的话 把每个司机跑单结束的时刻加入时间戳队列
-
-        for ts in timestamp:
-            timestamp_pq.put(ts)
-    return driver_list, order_list
-
-
-if __name__=="__main__":
+    max_w = km.maxWeight()
+    print('Max matching weights: {}'.format(max_w))
 
     pass

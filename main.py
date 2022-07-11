@@ -1,10 +1,9 @@
 import datetime
 from datetime import datetime as dt
 import time
-
+from solve import solve
 from csv_operation import get_driver_list, get_order_list
-from kuhn_munkres import kuhn_munkres
-from myopic_greedy import myopic_greedy
+
 
 driver_pos_dir = r"./datasets/driver_pos.csv"
 order_list_dir = r"./datasets/order_list.csv"
@@ -34,7 +33,7 @@ def evaluation(driver_list, order_list):
         vain_dis += driver.d_vain_dis
 
     print(f'订单分配量：{num}')
-    print(f'订单收益：{reward}')
+    print(f'订单总收益：{reward}')
     print(f'司机空载距离：{vain_dis}')
     print(f'乘客等待时间（等接单 + 接单后等司机赶来）：{times}')
     pass
@@ -44,8 +43,8 @@ def order_scheduling():
 
     st = time.time()
 
-    driver_list, order_list = myopic_greedy(driver_list, order_list, rate) # 贪心算法
-    # driver_list, order_list = kuhn_munkres(driver_list, order_list, rate) # 基于距离的匈牙利算法
+    driver_list, order_list = solve(driver_list, order_list, rate, "base_distance") # 基于距离的匈牙利算法
+    # driver_list, order_list = solve(driver_list, order_list, rate, "myopic_greedy") #
 
     ed = time.time()
     print(f'time consuming is {"%.4f" % (ed - st)} seconds')
