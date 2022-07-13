@@ -11,12 +11,16 @@ def dis_to_time(dis, rate):
     return datetime.timedelta(seconds=s)
 
 def dispatch(order, driver, time, rate):
-    order.o_status = 1  # 该订单被成功分派
     dis = get_euclidean_distance(order.o_start_x, order.o_start_y, driver.d_pos_x, driver.d_pos_y)  # 空载距离
     driver.d_pos_x = order.o_dest_x
     driver.d_pos_y = order.o_dest_y
     driver.d_ttime = time + dis_to_time(dis + order.o_dis, rate)  # 这单结束时刻 = 接单时刻 + 乘客等司机的时间（司机空载时间） + 跑单时间
     driver.d_reward += order.o_reward  # 更新司机收益
     driver.d_vain_dis += dis  # 更新司机空载距离
+    driver.d_orders_num += 1  # 更新司机跑单数量
+
+    order.o_status = 1  # 该订单被成功分派
+    order.o_driver_id = driver.d_id # 哪个司机id接的单
+    order.o_dispatch_time = time # 接单时刻
     order.o_wait = (time - order.o_stime) + dis_to_time(dis, rate)  # 该订单的乘客等待时间 = 等待接单的时间（接单时刻 - 下单时刻） + 乘客等司机的时间（司机空载时间）
     pass

@@ -65,3 +65,16 @@ plt.tight_layout()
 plt.savefig("space-time_dimension_distribution.jpg", dpi=300)
 plt.show()
 
+if __name__ == "__main__":
+    import numpy as np
+    from scipy.optimize import linear_sum_assignment
+
+    # 代价矩阵
+    cost = np.array([[4, 1, 3], [2, 0, 5], [3, 6, 5], [3, 5, 3]])
+    # print(cost)
+    r, c = linear_sum_assignment(cost)  # 得到最佳分配下的行列索引值
+    # print(cost[r, c])
+
+    print(r)
+    print(c)
+    print("最小成本：", cost[r, c].sum())
